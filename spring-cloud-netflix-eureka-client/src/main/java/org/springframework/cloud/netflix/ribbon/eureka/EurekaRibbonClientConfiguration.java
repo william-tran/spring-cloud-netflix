@@ -21,6 +21,7 @@ import javax.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.cloud.netflix.ribbon.PropertiesFactory;
 import org.springframework.cloud.netflix.ribbon.ServerIntrospector;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -67,6 +68,9 @@ public class EurekaRibbonClientConfiguration {
 	@Autowired(required = false)
 	private EurekaInstanceConfig eurekaConfig;
 
+	@Autowired
+	private PropertiesFactory propertiesFactory;
+
 	public EurekaRibbonClientConfiguration() {
 	}
 
@@ -82,6 +86,9 @@ public class EurekaRibbonClientConfiguration {
 	@Bean
 	@ConditionalOnMissingBean
 	public IPing ribbonPing(IClientConfig config) {
+		if (this.propertiesFactory.isSet(IPing.class, serviceId)) {
+			return this.propertiesFactory.get(IPing.class, config, serviceId);
+		}
 		NIWSDiscoveryPing ping = new NIWSDiscoveryPing();
 		ping.initWithNiwsConfig(config);
 		return ping;
@@ -90,6 +97,9 @@ public class EurekaRibbonClientConfiguration {
 	@Bean
 	@ConditionalOnMissingBean
 	public ServerList<?> ribbonServerList(IClientConfig config) {
+		if (this.propertiesFactory.isSet(ServerList.class, serviceId)) {
+			return this.propertiesFactory.get(ServerList.class, config, serviceId);
+		}
 		DiscoveryEnabledNIWSServerList discoveryServerList = new DiscoveryEnabledNIWSServerList(
 				config);
 		DomainExtractingServerList serverList = new DomainExtractingServerList(
