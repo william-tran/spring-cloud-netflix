@@ -20,15 +20,14 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.PropertyPlaceholderAutoConfiguration;
-import org.springframework.boot.test.IntegrationTest;
-import org.springframework.boot.test.SpringApplicationConfiguration;
 import org.springframework.cloud.netflix.archaius.ArchaiusAutoConfiguration;
 import org.springframework.cloud.netflix.ribbon.RibbonAutoConfiguration;
 import org.springframework.cloud.netflix.ribbon.SpringClientFactory;
-import org.springframework.cloud.netflix.ribbon.eureka.RibbonClientPreprocessorIntegrationTests.TestConfiguration;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import com.netflix.loadbalancer.ConfigurationBasedServerList;
@@ -41,8 +40,8 @@ import com.netflix.niws.loadbalancer.NIWSDiscoveryPing;
  * @author Spencer Gibb
  */
 @RunWith(SpringJUnit4ClassRunner.class)
-@SpringApplicationConfiguration(classes = TestConfiguration.class)
-@IntegrationTest({"foo.ribbon.NFLoadBalancerPingClassName=com.netflix.loadbalancer.DummyPing",
+@ContextConfiguration(classes = EurekaRibbonClientPropertyOverrideIntegrationTests.TestConfiguration.class)
+@TestPropertySource(properties = {"foo.ribbon.NFLoadBalancerPingClassName=com.netflix.loadbalancer.DummyPing",
 		"foo.ribbon.NIWSServerListClassName=com.netflix.loadbalancer.ConfigurationBasedServerList",
 		"foo.ribbon.NIWSServerListFilterClassName=com.netflix.loadbalancer.ServerListSubsetFilter",
 })
