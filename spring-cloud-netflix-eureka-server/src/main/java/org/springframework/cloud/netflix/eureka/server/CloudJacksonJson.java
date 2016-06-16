@@ -139,7 +139,7 @@ public class CloudJacksonJson extends LegacyJacksonJson {
 			String instanceId = info.getMetadata().get("instanceId");
 			if (StringUtils.hasText(instanceId)) {
 				// backwards compatibility for Angel
-				if (!instanceId.startsWith(info.getHostName())) {
+				if (StringUtils.hasText(info.getHostName()) && !instanceId.startsWith(info.getHostName())) {
 					instanceId = info.getHostName()+":"+instanceId;
 				}
 				return new InstanceInfo.Builder(info).setInstanceId(instanceId).build();
