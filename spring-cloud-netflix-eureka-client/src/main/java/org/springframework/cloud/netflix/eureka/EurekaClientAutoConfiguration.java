@@ -21,7 +21,12 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.lang.reflect.Field;
+import java.util.Collection;
 
+import org.apache.http.client.HttpClient;
+import org.apache.http.conn.scheme.Scheme;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
@@ -48,12 +53,20 @@ import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.core.env.ConfigurableEnvironment;
+import org.springframework.util.ReflectionUtils;
 import org.springframework.util.StringUtils;
 
 import com.netflix.appinfo.ApplicationInfoManager;
+import com.netflix.appinfo.EurekaClientIdentity;
 import com.netflix.appinfo.EurekaInstanceConfig;
 import com.netflix.appinfo.InstanceInfo;
 import com.netflix.discovery.DiscoveryClient.DiscoveryClientOptionalArgs;
+import com.netflix.discovery.shared.transport.jersey.EurekaJerseyClient;
+import com.netflix.discovery.shared.transport.jersey.JerseyEurekaHttpClientFactory;
+import com.netflix.discovery.shared.transport.jersey.TransportClientFactories;
+import com.sun.jersey.api.client.filter.ClientFilter;
+import com.sun.jersey.client.apache4.ApacheHttpClient4;
+import com.sun.jersey.client.apache4.ApacheHttpClient4Handler;
 import com.netflix.discovery.EurekaClient;
 import com.netflix.discovery.EurekaClientConfig;
 
@@ -159,7 +172,9 @@ public class EurekaClientAutoConfiguration {
 		@ConditionalOnMissingBean(value = EurekaClient.class, search = SearchStrategy.CURRENT)
 		public EurekaClient eurekaClient(ApplicationInfoManager manager,
 				EurekaClientConfig config) {
-			return new CloudEurekaClient(manager, config, this.optionalArgs,
+			InstanceInfo info = manager.getInfo();
+			DiscoveryClientOptionalArgs args = fixSslHandling(this.optionalArgs, config, info);
+			return new CloudEurekaClient(manager, config, args,
 					this.context);
 		}
 
@@ -188,8 +203,9 @@ public class EurekaClientAutoConfiguration {
 		@Lazy
 		public EurekaClient eurekaClient(ApplicationInfoManager manager,
 				EurekaClientConfig config, EurekaInstanceConfig instance) {
-			manager.getInfo(); // force initialization
-			return new CloudEurekaClient(manager, config, this.optionalArgs,
+			InstanceInfo info = manager.getInfo(); // force initialization
+			DiscoveryClientOptionalArgs args = fixSslHandling(this.optionalArgs, config, info);
+			return new CloudEurekaClient(manager, config, args,
 					this.context);
 		}
 
@@ -236,6 +252,44 @@ public class EurekaClientAutoConfiguration {
 		static class MissingScope {
 		}
 
+	}
+
+	/**
+	 * Specify a {@link EurekaJerseyClient} to use that uses an up to date
+	 * {@link SSLConnectionSocketFactory}. To create the
+	 * {@link EurekaJerseyClient}, the same call in
+	 * {@link TransportClientFactories#newTransportClientFactory(EurekaClientConfig, Collection, InstanceInfo)}
+	 * is made.
+	 */
+	private static DiscoveryClientOptionalArgs fixSslHandling(DiscoveryClientOptionalArgs args,
+			EurekaClientConfig clientConfig, InstanceInfo instanceInfo) {
+		if (args == null) {
+			args = new MutableDiscoveryClientOptionalArgs();
+		}
+		// pass null, they'll get added when the DiscoveryClient is instantiated
+		Collection<ClientFilter> additionalFilters = null;
+		JerseyEurekaHttpClientFactory factory = JerseyEurekaHttpClientFactory.create(
+				clientConfig,
+				additionalFilters,
+				instanceInfo,
+				new EurekaClientIdentity(instanceInfo.getIPAddr()));
+
+		EurekaJerseyClient jerseyClient = getField(JerseyEurekaHttpClientFactory.class, factory, "jerseyClient");
+		ApacheHttpClient4 client4 = jerseyClient.getClient();
+		ApacheHttpClient4Handler client4Handler = getField(ApacheHttpClient4.class, client4, "client4Handler");
+		HttpClient httpClient = client4Handler.getHttpClient();
+		SSLConnectionSocketFactory betterSocketFactory = SSLConnectionSocketFactory.getSocketFactory();
+		Scheme scheme = new Scheme("https", 443, new SSLSocketFactoryAdapter(betterSocketFactory));
+		httpClient.getConnectionManager().getSchemeRegistry().register(scheme);
+		args.setEurekaJerseyClient(jerseyClient);
+		return args;
+	}
+
+	@SuppressWarnings("unchecked")
+	private static <T> T getField(Class<?> clazz, Object target, String name) {
+		Field field = ReflectionUtils.findField(clazz, name);
+		field.setAccessible(true);
+		return (T) ReflectionUtils.getField(field, target);
 	}
 
 }

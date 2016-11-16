@@ -124,4 +124,15 @@
 			<scope>test</scope>
 		</dependency>
 	</dependencies>
+
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>org.apache.httpcomponents</groupId>
+				<artifactId>httpcore</artifactId>
+				<!-- Needed for extending SSLSocketFactory -->
+				<version>4.4.4</version>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
 </project>
